@@ -86,6 +86,7 @@ class GUI extends JFrame implements ActionListener {
             fieldFilterPanel.add(i);
         }
         fieldFilterPanel.add(btn_search);
+        btn_search.addActionListener(this);
 
         filterPanel.add(fieldFilterPanel);
 
@@ -153,7 +154,7 @@ class GUI extends JFrame implements ActionListener {
             // ..and additional condition statements
             // "전체", "부서", "성별", "연봉", "생일", "부하직원"
             String selectedCategory = category.getSelectedItem().toString();
-            String selectedCondition = condition_input.getSelectedText();
+            String selectedCondition = condition_input.getText();
 
             // 범위를 설정했으면서 검색 조건을 설정하지 않았다면?
             // 범위를 설정하지 않은 경우로 검색
@@ -192,6 +193,9 @@ class GUI extends JFrame implements ActionListener {
             }
 
             st += ";";
+
+            System.out.println("Query Statement : " + st);
+
         }
         else {
             // TODO: make buttons, and then add actions here
