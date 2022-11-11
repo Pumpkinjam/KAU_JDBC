@@ -1,3 +1,5 @@
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.*;
 import java.awt.*;  import java.awt.event.*;
@@ -196,11 +198,40 @@ class GUI extends JFrame implements ActionListener {
 
             System.out.println("Query Statement : " + st);
 
+            // now, let the result table be shown
+            model = new DefaultTableModel(fieldVector, 0);
+            resultTable = new JTable(model);
+
+            try {
+                resetNeeded = true;
+                db.setStatement(st);
+                ResultSet r = db.getResultSet();
+                while (r.next()) {
+                    Vector<String> tuple = new Vector<>();
+                    for (String i : fields) {
+                        tuple.add(r.getString(i));
+                    }
+                    model.addRow(tuple);
+                }
+
+            }
+            catch (SQLException sqle) {
+                System.out.println("Error occured during setting table.");
+                sqle.printStackTrace();
+            }
+            sPane = new JScrollPane(resultTable);
+            sPane.setSize(1000, 500);
+            this.add(sPane);
+            this.revalidate();
+            this.repaint();
+
         }
         else {
             // TODO: make buttons, and then add actions here
             System.out.println("That button does not have actions yet.");
         }
+
+
 
 
     }

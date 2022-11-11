@@ -18,6 +18,7 @@ public class SQLConnector {
         stm.clearParameters();
     }
 
+    // if stm(PreparedStatement) has "?", this may be used helpfully
     public void setStrings(String[] args) throws SQLException {
         for (int i = 1, z = args.length; i <= z; i++) {
             stm.setString(i, args[i]);
