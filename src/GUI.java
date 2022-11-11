@@ -4,12 +4,13 @@ import java.sql.SQLException;
 import java.util.*;
 import java.awt.*;  import java.awt.event.*;
 import javax.swing.*;
+import javax.swing.border.Border;
 import javax.swing.table.DefaultTableModel;
 
 class GUI extends JFrame implements ActionListener {
     SQLConnector db;
 
-   // private JComboBox
+    JPanel motherPanel = new JPanel();
 
     JPanel filterPanel;
 
@@ -31,9 +32,12 @@ class GUI extends JFrame implements ActionListener {
     */
     private JButton btn_search = new JButton("검색");
 
+    JPanel underPanel = new JPanel();
+
     String[] fields;
+    JPanel resultPanel;
     DefaultTableModel model;
-    JTable resultTable;     // TODO: update when user clicks btn_search
+    JTable resultTable;
     JScrollPane sPane;
 
     boolean resetNeeded = false;
@@ -58,6 +62,7 @@ class GUI extends JFrame implements ActionListener {
             cne.printStackTrace();
         }
 
+        motherPanel.setLayout(new BoxLayout(motherPanel, BoxLayout.Y_AXIS));
         /* Panel for Filters Initializing
          */
         filterPanel = new JPanel();
@@ -96,13 +101,19 @@ class GUI extends JFrame implements ActionListener {
         model = new DefaultTableModel();
         resultTable = new JTable(model);
         sPane = new JScrollPane(resultTable);
-        sPane.setSize(1080, 640);
-         */
+        sPane.setSize(1000, 500);
 
+        resultPanel = new JPanel();
+        resultPanel.setSize(1100, 550);
+        */
+        underPanel = new JPanel();
+        underPanel.setLayout(new BorderLayout());
 
         /* General Initializing
          */
-        this.add(filterPanel);
+        motherPanel.add(filterPanel);
+        motherPanel.add(underPanel);
+        this.add(motherPanel);
         setSize(1280, 720);
         setLocationRelativeTo(null);
         setTitle("KAU_JDBC");
@@ -113,6 +124,7 @@ class GUI extends JFrame implements ActionListener {
     @Override
     public void actionPerformed(ActionEvent e) {
         if (resetNeeded) {
+            this.remove(resultPanel);
             revalidate();
         }
 
@@ -142,16 +154,23 @@ class GUI extends JFrame implements ActionListener {
                         st += "concat(b.fname, ' ', b.minit, ' ', b.lname) as Supervisor";
                     }
                     else if (selectedString.equals("Department")) {
-                        st += "dname";
+                        st += "dname as Department";
                     }
                     else {
-                        st += selectedString;
+                        st += "a."+selectedString;
                     }
 
                 }
             }
-            st += " FROM EMPLOYEE a, EMPLOYEE b, DEPARTMENT";
-            st += " WHERE a.super_ssn=b.ssn AND e.dno=dnumber";
+
+            if (!firstFieldExists) {
+                System.out.println("체크박스를 하나 이상 선택하십시오.");
+                resetNeeded = false;
+                return;
+            }
+            st += " FROM EMPLOYEE a LEFT OUTER JOIN EMPLOYEE B ON a.Super_ssn=b.Ssn, DEPARTMENT";
+            //st += " WHERE a.super_ssn=b.ssn AND a.dno=dnumber";
+            st += " WHERE a.dno=dnumber";   // natural join으로는 super_ssn이 null인 경우를 가져올 수 없음
 
             // ..and additional condition statements
             // "전체", "부서", "성별", "연봉", "생일", "부하직원"
@@ -167,7 +186,7 @@ class GUI extends JFrame implements ActionListener {
 
             // 부서명으로 검색
             if (selectedCategory.equals("부서")) {
-                st += " AND a.Dname=\"" + selectedCondition + "\"";
+                st += " AND Dname=\"" + selectedCondition + "\"";
             }
             // 성별으로 검색 (M or F)
             else if (selectedCategory.equals("성별")) {
@@ -200,15 +219,15 @@ class GUI extends JFrame implements ActionListener {
 
             // now, let the result table be shown
             model = new DefaultTableModel(fieldVector, 0);
-            resultTable = new JTable(model);
 
             try {
                 resetNeeded = true;
                 db.setStatement(st);
                 ResultSet r = db.getResultSet();
+
                 while (r.next()) {
                     Vector<String> tuple = new Vector<>();
-                    for (String i : fields) {
+                    for (String i : fieldVector) {
                         tuple.add(r.getString(i));
                     }
                     model.addRow(tuple);
@@ -219,11 +238,19 @@ class GUI extends JFrame implements ActionListener {
                 System.out.println("Error occured during setting table.");
                 sqle.printStackTrace();
             }
+
+            resultPanel = new JPanel();
+            resultPanel.setLayout(new BoxLayout(resultPanel, BoxLayout.Y_AXIS));
+            resultPanel.setPreferredSize(new Dimension(1000, 200));
+
+            resultTable = new JTable(model);
+            //resultTable.setMaximumSize(new Dimension(1000, 200));
             sPane = new JScrollPane(resultTable);
-            sPane.setSize(1000, 500);
-            this.add(sPane);
+            sPane.setPreferredSize(new Dimension(1000, 200));
+
+            resultPanel.add(sPane);
+            underPanel.add("North", resultPanel);
             this.revalidate();
-            this.repaint();
 
         }
         else {
