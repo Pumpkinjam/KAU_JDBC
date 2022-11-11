@@ -31,4 +31,22 @@ public class SQLConnector {
         return res;
     }
 
+    public void update() throws SQLException {
+        // don't call this method if the statement is "SELECT"
+        if (this.stm.toString().charAt(0) == 'S') {
+            throw new SQLException("Can't call execute() for SELECT statement");
+        }
+
+        stm.executeUpdate();
+    }
+
+    public void update(String s) throws SQLException {
+        // don't call this method if the statement is "SELECT"
+        if (s.toString().charAt(0) == 'S') {
+            throw new SQLException("Can't call execute() for SELECT statement");
+        }
+
+        stm.executeUpdate(s);
+    }
+
 }
