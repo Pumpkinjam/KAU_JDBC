@@ -5,6 +5,7 @@ import java.util.*;
 import java.awt.*;  import java.awt.event.*;
 import javax.swing.*;
 import javax.swing.border.Border;
+import javax.swing.event.ListSelectionEvent;
 import javax.swing.table.DefaultTableModel;
 
 class GUI extends JFrame implements ActionListener {
@@ -36,6 +37,7 @@ class GUI extends JFrame implements ActionListener {
     JButton insertConfirmButton, updateConfirmButton, deleteConfirmButton;
 
     boolean resetNeeded = false;
+    String lastSearchStatement;
 
     // Construct with field names (in Checkboxes)
     GUI(String[] fields) {
@@ -48,6 +50,7 @@ class GUI extends JFrame implements ActionListener {
             System.err.println("Driver load failure.");
             cne.printStackTrace();
             //System.exit(0); TODO: uncomment this line.
+            System.exit(-1);
         }
 
         // input password from user, and then try to connect.
@@ -56,6 +59,7 @@ class GUI extends JFrame implements ActionListener {
             System.err.println("SQL Connection failure.");
             sqle.printStackTrace();
             //System.exit(0); TODO: uncomment this line too.
+            System.exit(-1);
         }
 
         System.out.println("Database Connection Succeed.");
@@ -245,6 +249,7 @@ class GUI extends JFrame implements ActionListener {
         st += ";";
 
         System.out.println("Query Statement : " + st);
+        lastSearchStatement = st;
 
         // now, let the result table be shown
         model = new DefaultTableModel(fieldVector, 0);
@@ -264,15 +269,22 @@ class GUI extends JFrame implements ActionListener {
 
         }
         catch (SQLException sqle) {
-            System.out.println("Error occured during setting table.");
+            alert("Error occured during setting table.");
             sqle.printStackTrace();
+            return;
         }
 
         resultPanel = new JPanel();
         resultPanel.setLayout(new BoxLayout(resultPanel, BoxLayout.Y_AXIS));
         resultPanel.setPreferredSize(new Dimension(1000, 200));
 
-        resultTable = new JTable(model);
+        resultTable = new JTable(model) /*{
+            @Override
+            public void columnSelectionChanged(ListSelectionEvent e) {
+                GUI.selectedRow = getSelectedRow();
+            }
+        }*/;
+
         //resultTable.setMaximumSize(new Dimension(1000, 200));
         sPane = new JScrollPane(resultTable);
         sPane.setPreferredSize(new Dimension(1000, 200));
@@ -283,49 +295,127 @@ class GUI extends JFrame implements ActionListener {
 
     }
 
+    private void insertServiceRoutine() {
+        boolean isFirst = true;
+        String st = "INSERT INTO EMPLOYEE VALUES (";
+        for (JTextField tf : insertForm) {
+
+            String s = tf.getText();
+            if (tf == insertForm[0]) {
+                StringTokenizer nameTokenizer = new StringTokenizer(s);
+
+            }
+            else if (tf != insertForm[5]) s = "\"" + s + "\"";
+
+            if (isFirst) isFirst = false;
+            else st += ", ";
+
+            st += (s == null) ? "NULL" : s;
+        }
+        st += ");";
+
+        try {
+            db.setStatement(st);
+            db.update();
+        }
+        catch (SQLException sqle) {
+            alert("Error occurred during inserting tuple.");
+            sqle.printStackTrace();
+            return;
+        }
+
+        alert("Insert Succeed.");
+
+    }
+
+    private void updateServiceRoutine() {
+        int rowIdx;
+
+        try {
+            rowIdx = resultTable.getSelectedRow();
+            if (rowIdx == -1) {
+                alert("행을 선택해주세요.");
+                return;
+            }
+        } catch (NullPointerException npe) {
+            alert("테이블이 생성되지 않았습니다.");
+            npe.printStackTrace();
+            return;
+        }
+
+        String st = "UPDATE EMPLOYEE SET ";
+        st += updateForm[0].getText() + "=" + updateForm[1].getText();
+        st += "WHERE Ssn=" + model.getValueAt(rowIdx, 1) + ";";
+
+        try {
+            db.setStatement(st);
+            db.update();
+        }
+        catch (SQLException sqle) {
+            alert("Error occurred during updating data.");
+            sqle.printStackTrace();
+            return;
+        }
+
+        try {
+            db.setStatement(lastSearchStatement);
+            db.update();
+        } catch (SQLException sqle) {
+            alert("Error occurred during refreshing table: after updating data.");
+            sqle.printStackTrace();
+            return;
+        }
+
+        System.out.println("updateServiceRoutine succeed.");
+    }
+
+    private void deleteServiceRoutine() {
+        int rowIdx;
+
+        try {
+            rowIdx = resultTable.getSelectedRow();
+            if (rowIdx == -1) {
+                alert("행을 선택해주세요.");
+                return;
+            }
+        } catch (NullPointerException npe) {
+            alert("테이블이 생성되지 않았습니다.");
+            npe.printStackTrace();
+            return;
+        }
+
+        String st = "DELETE FROM EMPLOYEE WHERE ";
+        st += "Ssn=" + model.getValueAt(rowIdx, 1) + ";";
+
+        model.removeRow(rowIdx);
+/*
+        try {
+            db.setStatement(lastSearchStatement);
+            db.update();
+        } catch (SQLException sqle) {
+            alert("Error occurred during refreshing table: after updating data.");
+            sqle.printStackTrace();
+            return;
+        }
+*/
+        System.out.println("deleteServiceRoutine succeed.");
+
+    }
+
+
     @Override
     public void actionPerformed(ActionEvent e) {
 
         Object trg = e.getSource();
 
         if (trg == btn_search) searchServiceRoutine();
-        else if (trg == insertConfirmButton) {
-            boolean isFirst = true;
-            String st = "INSERT INTO EMPLOYEE VALUES (";
-            for (JTextField tf : insertForm) {
-                String s = tf.getText();
-
-                if (isFirst) isFirst = false;
-                else st += ", ";
-
-                st += (s == null) ? "NULL" : s;
-            }
-            st += ");";
-
-            try {
-                db.setStatement(st);
-                db.update();
-            }
-            catch (SQLException sqle) {
-                System.out.println("Error occured during inserting tuple.");
-                sqle.printStackTrace();
-            }
-
-            alert("Insert Succeed.");
-        }
-        else if (trg == updateConfirmButton) {
-
-        }
-        else if (trg == deleteConfirmButton) {
-
-        }
+        else if (trg == insertConfirmButton) insertServiceRoutine();
+        else if (trg == updateConfirmButton) updateServiceRoutine();
+        else if (trg == deleteConfirmButton) deleteServiceRoutine();
         else {
             // TODO: make buttons, and then add actions here
             System.out.println("That button does not have actions yet.");
         }
-
-
-
 
     }
 
@@ -375,4 +465,22 @@ class HintTextField extends JTextField {
         });
     }
 
+}
+
+class FullName {
+    String Fname, Lname;
+    char minit;
+
+    FullName(String s) {
+        StringTokenizer nameTokenizer = new StringTokenizer(s);
+        Fname = nameTokenizer.nextToken();
+        minit = nameTokenizer.nextToken().charAt(0);
+        Lname = nameTokenizer.nextToken();
+    }
+
+    public String[] getStringArray() {
+        String[] res = new String[3];
+        res[0] = Fname; res[1] = minit+""; res[2] = Lname;
+        return res;
+    }
 }
