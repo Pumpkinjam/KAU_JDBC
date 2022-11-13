@@ -10,7 +10,6 @@ public class SQLConnector {
                 "jdbc:mysql://localhost:3306/" + dbname + "?serversTimeZone=UTC",
                 acc, pw
         );
-
     }
 
     public void setStatement(String st) throws SQLException {
@@ -36,6 +35,7 @@ public class SQLConnector {
         if (this.stm.toString().charAt(0) == 'S') {
             throw new SQLException("Can't call execute() for SELECT statement");
         }
+
 
         stm.executeUpdate();
     }

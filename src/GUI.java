@@ -124,7 +124,7 @@ class GUI extends JFrame implements ActionListener {
 
         insertForm = new JTextField[fields.length];
         for (int i = 0, z = fields.length; i < z; i++) {
-            insertForm[i] = new HintTextField(fields[i]);
+            insertForm[i] = new HintTextField(i==6? "Super_ssn" : fields[i]);
             insertPanel.add(insertForm[i]);
         }
         insertConfirmButton = new JButton("Insert");
@@ -202,7 +202,7 @@ class GUI extends JFrame implements ActionListener {
             resetNeeded = false;
             return;
         }
-        st += " FROM EMPLOYEE a LEFT OUTER JOIN EMPLOYEE B ON a.Super_ssn=b.Ssn, DEPARTMENT";
+        st += " FROM EMPLOYEE a LEFT OUTER JOIN EMPLOYEE b ON a.Super_ssn=b.Ssn, DEPARTMENT";
         //st += " WHERE a.super_ssn=b.ssn AND a.dno=dnumber";
         st += " WHERE a.dno=dnumber";   // natural join으로는 super_ssn이 null인 경우를 가져올 수 없음
 
@@ -244,7 +244,7 @@ class GUI extends JFrame implements ActionListener {
         }
         // Ssn(에 해당하는 직원)을 상사로 갖는 직원 검색
         else if (selectedCategory.equals("부하직원")) {
-            st += " AND a.ssn=b.super_ssn";
+            st += " AND b.ssn=" + quote(selectedCondition);
         }
 
         st += ";";
@@ -306,15 +306,15 @@ class GUI extends JFrame implements ActionListener {
             String s = tf.getText();
             if (tf == insertForm[0]) {
                 String[] nameTokens = new FullName(s).getStringArray();
-                s = "\"" + nameTokens[0] + "\", \"" + nameTokens[1] + "\", \"" + nameTokens[2] + "\"";
+                s = "\'" + nameTokens[0] + "\', \'" + nameTokens[1] + "\', \'" + nameTokens[2] + "\'";
             }
             else if (tf == insertForm[7]) {
                 //String dno;
                 try {
-                    db.setStatement("SELECT Dnumber FROM DEPARTMENT WHERE Dname=\"" + s + "\";");
+                    db.setStatement("SELECT Dnumber FROM DEPARTMENT WHERE Dname=" + quote(s) + ";");
                     ResultSet r = db.getResultSet();
                     r.next();
-                    s = quote(r.getString("Dnumber"));
+                    s = r.getString("Dnumber");
                 }
                 catch (SQLException sqle) {
                     alert("An error occurred during getting Dname");
@@ -364,7 +364,7 @@ class GUI extends JFrame implements ActionListener {
 
         String st = "UPDATE EMPLOYEE SET ";
         st += updateForm[0].getText() + "=" + updateForm[1].getText();
-        st += "WHERE Ssn=" + model.getValueAt(rowIdx, 1) + ";";
+        st += "WHERE Ssn=" + quote((String)model.getValueAt(rowIdx, 1)) + ";";
 
         System.out.println("Query Statement : " + st);
 
@@ -406,12 +406,12 @@ class GUI extends JFrame implements ActionListener {
         }
 
         String st = "DELETE FROM EMPLOYEE WHERE ";
-        st += "Ssn=" + model.getValueAt(rowIdx, 1) + ";";
+        st += "Ssn=" + quote((String)model.getValueAt(rowIdx, 1)) + ";";
 
         System.out.println("Query Statement : " + st);
 
         model.removeRow(rowIdx);
-/*
+
         try {
             db.setStatement(lastSearchStatement);
             db.update();
@@ -420,7 +420,7 @@ class GUI extends JFrame implements ActionListener {
             sqle.printStackTrace();
             return;
         }
-*/
+
         System.out.println("deleteServiceRoutine succeed.");
 
     }
@@ -447,7 +447,7 @@ class GUI extends JFrame implements ActionListener {
         JOptionPane.showMessageDialog(null, msg);
     }
 
-    private static String quote(String s) { return "\"" + s + "\""; }
+    private static String quote(String s) { return "\'" + s + "\'"; }
 }
 
 /* get helped from...
