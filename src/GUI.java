@@ -306,15 +306,15 @@ class GUI extends JFrame implements ActionListener {
             String s = tf.getText();
             if (tf == insertForm[0]) {
                 String[] nameTokens = new FullName(s).getStringArray();
-                st += nameTokens[0] + "\", \"" + nameTokens[1] + "\", \"" + nameTokens[2] + "\"";
+                s = "\"" + nameTokens[0] + "\", \"" + nameTokens[1] + "\", \"" + nameTokens[2] + "\"";
             }
             else if (tf == insertForm[7]) {
                 //String dno;
                 try {
-                    db.setStatement("SELECT Dnumber FROM DEPARTMENTS WHERE Dname=\"" + s + "\"");
+                    db.setStatement("SELECT Dnumber FROM DEPARTMENT WHERE Dname=\"" + s + "\";");
                     ResultSet r = db.getResultSet();
-
-                    s = r.getString("Dnumber");
+                    r.next();
+                    s = quote(r.getString("Dnumber"));
                 }
                 catch (SQLException sqle) {
                     alert("An error occurred during getting Dname");
@@ -322,15 +322,16 @@ class GUI extends JFrame implements ActionListener {
                     return;
                 }
             }
-            else if (tf != insertForm[5]) s = "\"" + s + "\"";
+            else if (tf != insertForm[5]) s = quote(s);
 
 
             if (isFirst) isFirst = false;
             else st += ", ";
-
-            st += (s == null) ? "NULL" : s;
+            st += ((s == null) ? "NULL" : s);
         }
         st += ");";
+
+        System.out.println("Query Statement : " + st);
 
         try {
             db.setStatement(st);
@@ -364,6 +365,8 @@ class GUI extends JFrame implements ActionListener {
         String st = "UPDATE EMPLOYEE SET ";
         st += updateForm[0].getText() + "=" + updateForm[1].getText();
         st += "WHERE Ssn=" + model.getValueAt(rowIdx, 1) + ";";
+
+        System.out.println("Query Statement : " + st);
 
         try {
             db.setStatement(st);
@@ -405,6 +408,8 @@ class GUI extends JFrame implements ActionListener {
         String st = "DELETE FROM EMPLOYEE WHERE ";
         st += "Ssn=" + model.getValueAt(rowIdx, 1) + ";";
 
+        System.out.println("Query Statement : " + st);
+
         model.removeRow(rowIdx);
 /*
         try {
@@ -441,6 +446,8 @@ class GUI extends JFrame implements ActionListener {
         System.out.println(msg);
         JOptionPane.showMessageDialog(null, msg);
     }
+
+    private static String quote(String s) { return "\"" + s + "\""; }
 }
 
 /* get helped from...
