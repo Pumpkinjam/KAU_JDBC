@@ -8,6 +8,7 @@
       <change beforePath="$PROJECT_DIR$/out/production/KAU_JDBC/HintTextField.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/KAU_JDBC/HintTextField.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/out/production/KAU_JDBC/SQLConnector.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/KAU_JDBC/SQLConnector.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/GUI.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/GUI.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/Main.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/Main.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/SQLConnector.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/SQLConnector.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
