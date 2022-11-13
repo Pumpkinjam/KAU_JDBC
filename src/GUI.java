@@ -7,6 +7,7 @@ import javax.swing.*;
 import javax.swing.border.Border;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.table.DefaultTableModel;
+import javax.xml.transform.Result;
 
 class GUI extends JFrame implements ActionListener {
     SQLConnector db;
@@ -295,6 +296,8 @@ class GUI extends JFrame implements ActionListener {
 
     }
 
+    //  0                     1    2      3        4    5       6          7
+    // {Fname, Minit, Lname}, Ssn, Bdate, Address, Sex, Salary, Super_ssn, "Dname!!"
     private void insertServiceRoutine() {
         boolean isFirst = true;
         String st = "INSERT INTO EMPLOYEE VALUES (";
@@ -302,10 +305,25 @@ class GUI extends JFrame implements ActionListener {
 
             String s = tf.getText();
             if (tf == insertForm[0]) {
-                StringTokenizer nameTokenizer = new StringTokenizer(s);
+                String[] nameTokens = new FullName(s).getStringArray();
+                st += nameTokens[0] + "\", \"" + nameTokens[1] + "\", \"" + nameTokens[2] + "\"";
+            }
+            else if (tf == insertForm[7]) {
+                //String dno;
+                try {
+                    db.setStatement("SELECT Dnumber FROM DEPARTMENTS WHERE Dname=\"" + s + "\"");
+                    ResultSet r = db.getResultSet();
 
+                    s = r.getString("Dnumber");
+                }
+                catch (SQLException sqle) {
+                    alert("An error occurred during getting Dname");
+                    sqle.printStackTrace();
+                    return;
+                }
             }
             else if (tf != insertForm[5]) s = "\"" + s + "\"";
+
 
             if (isFirst) isFirst = false;
             else st += ", ";
