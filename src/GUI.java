@@ -5,6 +5,7 @@ import java.util.*;
 import java.awt.*;  import java.awt.event.*;
 import javax.swing.*;
 import javax.swing.border.Border;
+import javax.swing.event.ListSelectionEvent;
 import javax.swing.table.DefaultTableModel;
 
 class GUI extends JFrame implements ActionListener {
@@ -36,6 +37,7 @@ class GUI extends JFrame implements ActionListener {
     JButton insertConfirmButton, updateConfirmButton, deleteConfirmButton;
 
     boolean resetNeeded = false;
+    String lastSearchStatement;
 
     // Construct with field names (in Checkboxes)
     GUI(String[] fields) {
@@ -48,6 +50,7 @@ class GUI extends JFrame implements ActionListener {
             System.err.println("Driver load failure.");
             cne.printStackTrace();
             //System.exit(0); TODO: uncomment this line.
+            System.exit(-1);
         }
 
         // input password from user, and then try to connect.
@@ -56,6 +59,7 @@ class GUI extends JFrame implements ActionListener {
             System.err.println("SQL Connection failure.");
             sqle.printStackTrace();
             //System.exit(0); TODO: uncomment this line too.
+            System.exit(-1);
         }
 
         System.out.println("Database Connection Succeed.");
@@ -157,176 +161,261 @@ class GUI extends JFrame implements ActionListener {
         setVisible(true);
     }
 
+    // called when btn_search clicked.
+    // get tuples and show it to the table.
+    private void searchServiceRoutine() {
+        Vector<String> fieldVector = new Vector<>();    // for head row (names of column)
+
+        String st = "SELECT ";                           // statement string ready
+        boolean firstFieldExists = false;                    // we must handle attaching comma (',')
+
+        // Query Statement Building
+        for (int i = 0, z = fields.length; i < z; i++) {
+            // check if checkboxes selected
+            if (cbList[i].isSelected()) {
+                fieldVector.add(fields[i]);     // add to head row
+
+                if (firstFieldExists)   st += ", ";
+                else                    firstFieldExists = true;
+
+                String selectedString = fields[i];
+
+                if (selectedString.equals("Name")) {
+                    st += "concat(a.fname, ' ', a.minit, ' ', a.lname) as Name";
+                }
+                else if (selectedString.equals("Supervisor")) {
+                    st += "concat(b.fname, ' ', b.minit, ' ', b.lname) as Supervisor";
+                }
+                else if (selectedString.equals("Department")) {
+                    st += "dname as Department";
+                }
+                else {
+                    st += "a."+selectedString;
+                }
+
+            }
+        }
+
+        if (!firstFieldExists) {
+            System.out.println("체크박스를 하나 이상 선택하십시오.");
+            resetNeeded = false;
+            return;
+        }
+        st += " FROM EMPLOYEE a LEFT OUTER JOIN EMPLOYEE B ON a.Super_ssn=b.Ssn, DEPARTMENT";
+        //st += " WHERE a.super_ssn=b.ssn AND a.dno=dnumber";
+        st += " WHERE a.dno=dnumber";   // natural join으로는 super_ssn이 null인 경우를 가져올 수 없음
+
+        // ..and additional condition statements
+        // "전체", "부서", "성별", "연봉", "생일", "부하직원"
+        String selectedCategory = category.getSelectedItem().toString();
+        String selectedCondition = condition_input.getText();
+
+        // 범위를 설정했으면서 검색 조건을 설정하지 않았다면?
+        // 범위를 설정하지 않은 경우로 검색
+        if (!selectedCategory.equals("전체") && selectedCondition.equals("")) {
+            System.out.println("조건을 입력하지 않아 전체를 검색합니다.");
+            selectedCategory = "전체";
+        }
+
+        // 부서명으로 검색
+        if (selectedCategory.equals("부서")) {
+            st += " AND Dname=\"" + selectedCondition + "\"";
+        }
+        // 성별으로 검색 (M or F)
+        else if (selectedCategory.equals("성별")) {
+            st += " AND a.Sex=\"" + selectedCondition + "\"";
+        }
+        // 입력한 값보다 높은 연봉을 받는 직원 검색
+        else if (selectedCategory.equals("연봉")) {
+            st += " AND a.Salary>" + selectedCondition;
+        }
+        // 생일이 n월인 직원 검색 (1월 ~ 12월)
+        // 정수만 입력 가능, "월" 붙여도 처리 가능
+        // TODO: additional: "년", "일" 붙여도 처리하는 기능 (이 경우 정수만 입력할 수는 없음)
+        else if (selectedCategory.equals("생일")) {
+            int l = selectedCondition.length();
+            // "월" 붙은 경우 "월" 제거한 뒤 비교
+            if (selectedCondition.charAt(l-1) == '월') {
+                selectedCondition = selectedCondition.substring(0, l-1);
+            }
+
+            st += " AND MONTH(a.Bdate)=" + selectedCondition;
+        }
+        // Ssn(에 해당하는 직원)을 상사로 갖는 직원 검색
+        else if (selectedCategory.equals("부하직원")) {
+            st += " AND a.ssn=b.super_ssn";
+        }
+
+        st += ";";
+
+        System.out.println("Query Statement : " + st);
+        lastSearchStatement = st;
+
+        // now, let the result table be shown
+        model = new DefaultTableModel(fieldVector, 0);
+
+        try {
+            resetNeeded = true;
+            db.setStatement(st);
+            ResultSet r = db.getResultSet();
+
+            while (r.next()) {
+                Vector<String> tuple = new Vector<>();
+                for (String i : fieldVector) {
+                    tuple.add(r.getString(i));
+                }
+                model.addRow(tuple);
+            }
+
+        }
+        catch (SQLException sqle) {
+            alert("Error occured during setting table.");
+            sqle.printStackTrace();
+            return;
+        }
+
+        resultPanel = new JPanel();
+        resultPanel.setLayout(new BoxLayout(resultPanel, BoxLayout.Y_AXIS));
+        resultPanel.setPreferredSize(new Dimension(1000, 200));
+
+        resultTable = new JTable(model) /*{
+            @Override
+            public void columnSelectionChanged(ListSelectionEvent e) {
+                GUI.selectedRow = getSelectedRow();
+            }
+        }*/;
+
+        //resultTable.setMaximumSize(new Dimension(1000, 200));
+        sPane = new JScrollPane(resultTable);
+        sPane.setPreferredSize(new Dimension(1000, 200));
+
+        resultPanel.add(sPane);
+        underPanel.add("North", resultPanel);
+        this.revalidate();
+
+    }
+
+    private void insertServiceRoutine() {
+        boolean isFirst = true;
+        String st = "INSERT INTO EMPLOYEE VALUES (";
+        for (JTextField tf : insertForm) {
+
+            String s = tf.getText();
+            if (tf == insertForm[0]) {
+                StringTokenizer nameTokenizer = new StringTokenizer(s);
+
+            }
+            else if (tf != insertForm[5]) s = "\"" + s + "\"";
+
+            if (isFirst) isFirst = false;
+            else st += ", ";
+
+            st += (s == null) ? "NULL" : s;
+        }
+        st += ");";
+
+        try {
+            db.setStatement(st);
+            db.update();
+        }
+        catch (SQLException sqle) {
+            alert("Error occurred during inserting tuple.");
+            sqle.printStackTrace();
+            return;
+        }
+
+        alert("Insert Succeed.");
+
+    }
+
+    private void updateServiceRoutine() {
+        int rowIdx;
+
+        try {
+            rowIdx = resultTable.getSelectedRow();
+            if (rowIdx == -1) {
+                alert("행을 선택해주세요.");
+                return;
+            }
+        } catch (NullPointerException npe) {
+            alert("테이블이 생성되지 않았습니다.");
+            npe.printStackTrace();
+            return;
+        }
+
+        String st = "UPDATE EMPLOYEE SET ";
+        st += updateForm[0].getText() + "=" + updateForm[1].getText();
+        st += "WHERE Ssn=" + model.getValueAt(rowIdx, 1) + ";";
+
+        try {
+            db.setStatement(st);
+            db.update();
+        }
+        catch (SQLException sqle) {
+            alert("Error occurred during updating data.");
+            sqle.printStackTrace();
+            return;
+        }
+
+        try {
+            db.setStatement(lastSearchStatement);
+            db.update();
+        } catch (SQLException sqle) {
+            alert("Error occurred during refreshing table: after updating data.");
+            sqle.printStackTrace();
+            return;
+        }
+
+        System.out.println("updateServiceRoutine succeed.");
+    }
+
+    private void deleteServiceRoutine() {
+        int rowIdx;
+
+        try {
+            rowIdx = resultTable.getSelectedRow();
+            if (rowIdx == -1) {
+                alert("행을 선택해주세요.");
+                return;
+            }
+        } catch (NullPointerException npe) {
+            alert("테이블이 생성되지 않았습니다.");
+            npe.printStackTrace();
+            return;
+        }
+
+        String st = "DELETE FROM EMPLOYEE WHERE ";
+        st += "Ssn=" + model.getValueAt(rowIdx, 1) + ";";
+
+        model.removeRow(rowIdx);
+/*
+        try {
+            db.setStatement(lastSearchStatement);
+            db.update();
+        } catch (SQLException sqle) {
+            alert("Error occurred during refreshing table: after updating data.");
+            sqle.printStackTrace();
+            return;
+        }
+*/
+        System.out.println("deleteServiceRoutine succeed.");
+
+    }
+
+
     @Override
     public void actionPerformed(ActionEvent e) {
 
         Object trg = e.getSource();
 
-        if (trg == btn_search) {
-            if (resetNeeded) {
-                this.remove(resultPanel);
-                revalidate();
-            }
-
-            Vector<String> fieldVector = new Vector<>();    // for head row (names of column)
-
-            String st = "SELECT ";                           // statement string ready
-            boolean firstFieldExists = false;                    // we must handle attaching comma (',')
-
-            // Query Statement Building
-            for (int i = 0, z = fields.length; i < z; i++) {
-                // check if checkboxes selected
-                if (cbList[i].isSelected()) {
-                    fieldVector.add(fields[i]);     // add to head row
-
-                    if (firstFieldExists)   st += ", ";
-                    else                    firstFieldExists = true;
-
-                    String selectedString = fields[i];
-
-                    if (selectedString.equals("Name")) {
-                        st += "concat(a.fname, ' ', a.minit, ' ', a.lname) as Name";
-                    }
-                    else if (selectedString.equals("Supervisor")) {
-                        st += "concat(b.fname, ' ', b.minit, ' ', b.lname) as Supervisor";
-                    }
-                    else if (selectedString.equals("Department")) {
-                        st += "dname as Department";
-                    }
-                    else {
-                        st += "a."+selectedString;
-                    }
-
-                }
-            }
-
-            if (!firstFieldExists) {
-                alert("체크박스를 하나 이상 선택하십시오.");
-                resetNeeded = false;
-                return;
-            }
-            st += " FROM EMPLOYEE a LEFT OUTER JOIN EMPLOYEE B ON a.Super_ssn=b.Ssn, DEPARTMENT";
-            //st += " WHERE a.super_ssn=b.ssn AND a.dno=dnumber";
-            st += " WHERE a.dno=dnumber";   // natural join으로는 super_ssn이 null인 경우를 가져올 수 없음
-
-            // ..and additional condition statements
-            // "전체", "부서", "성별", "연봉", "생일", "부하직원"
-            String selectedCategory = category.getSelectedItem().toString();
-            String selectedCondition = condition_input.getText();
-
-            // 범위를 설정했으면서 검색 조건을 설정하지 않았다면?
-            // 범위를 설정하지 않은 경우로 검색
-            if (!selectedCategory.equals("전체") && selectedCondition.equals("")) {
-                alert("조건을 입력하지 않아 전체를 검색합니다.");
-                selectedCategory = "전체";
-            }
-
-            // 부서명으로 검색
-            if (selectedCategory.equals("부서")) {
-                st += " AND Dname=\"" + selectedCondition + "\"";
-            }
-            // 성별으로 검색 (M or F)
-            else if (selectedCategory.equals("성별")) {
-                st += " AND a.Sex=\"" + selectedCondition + "\"";
-            }
-            // 입력한 값보다 높은 연봉을 받는 직원 검색
-            else if (selectedCategory.equals("연봉")) {
-                st += " AND a.Salary>" + selectedCondition;
-            }
-            // 생일이 n월인 직원 검색 (1월 ~ 12월)
-            // 정수만 입력 가능, "월" 붙여도 처리 가능
-            // TODO: additional: "년", "일" 붙여도 처리하는 기능 (이 경우 정수만 입력할 수는 없음)
-            else if (selectedCategory.equals("생일")) {
-                int l = selectedCondition.length();
-                // "월" 붙은 경우 "월" 제거한 뒤 비교
-                if (selectedCondition.charAt(l-1) == '월') {
-                    selectedCondition = selectedCondition.substring(0, l-1);
-                }
-
-                st += " AND MONTH(a.Bdate)=" + selectedCondition;
-            }
-            // Ssn(에 해당하는 직원)을 상사로 갖는 직원 검색
-            else if (selectedCategory.equals("부하직원")) {
-                st += " AND a.ssn=b.super_ssn";
-            }
-
-            st += ";";
-
-            System.out.println("Query Statement : " + st);
-
-            // now, let the result table be shown
-            model = new DefaultTableModel(fieldVector, 0);
-
-            try {
-                resetNeeded = true;
-                db.setStatement(st);
-                ResultSet r = db.getResultSet();
-
-                while (r.next()) {
-                    Vector<String> tuple = new Vector<>();
-                    for (String i : fieldVector) {
-                        tuple.add(r.getString(i));
-                    }
-                    model.addRow(tuple);
-                }
-
-            }
-            catch (SQLException sqle) {
-                System.out.println("Error occured during setting table.");
-                sqle.printStackTrace();
-            }
-
-            resultPanel = new JPanel();
-            resultPanel.setLayout(new BoxLayout(resultPanel, BoxLayout.Y_AXIS));
-            resultPanel.setPreferredSize(new Dimension(1000, 200));
-
-            resultTable = new JTable(model);
-            //resultTable.setMaximumSize(new Dimension(1000, 200));
-            sPane = new JScrollPane(resultTable);
-            sPane.setPreferredSize(new Dimension(1000, 200));
-
-            resultPanel.add(sPane);
-            underPanel.add("North", resultPanel);
-            this.revalidate();
-
-        }
-        else if (trg == insertConfirmButton) {
-            boolean isFirst = true;
-            String st = "INSERT INTO EMPLOYEE VALUES (";
-            for (JTextField tf : insertForm) {
-                String s = tf.getText();
-
-                if (isFirst) isFirst = false;
-                else st += ", ";
-
-                st += (s == null) ? "NULL" : s;
-            }
-            st += ");";
-
-            try {
-                db.setStatement(st);
-                db.update();
-            }
-            catch (SQLException sqle) {
-                System.out.println("Error occured during inserting tuple.");
-                sqle.printStackTrace();
-            }
-
-            alert("Insert Succeed.");
-        }
-        else if (trg == updateConfirmButton) {
-
-        }
-        else if (trg == deleteConfirmButton) {
-
-        }
+        if (trg == btn_search) searchServiceRoutine();
+        else if (trg == insertConfirmButton) insertServiceRoutine();
+        else if (trg == updateConfirmButton) updateServiceRoutine();
+        else if (trg == deleteConfirmButton) deleteServiceRoutine();
         else {
             // TODO: make buttons, and then add actions here
             System.out.println("That button does not have actions yet.");
         }
-
-
-
 
     }
 
@@ -376,4 +465,22 @@ class HintTextField extends JTextField {
         });
     }
 
+}
+
+class FullName {
+    String Fname, Lname;
+    char minit;
+
+    FullName(String s) {
+        StringTokenizer nameTokenizer = new StringTokenizer(s);
+        Fname = nameTokenizer.nextToken();
+        minit = nameTokenizer.nextToken().charAt(0);
+        Lname = nameTokenizer.nextToken();
+    }
+
+    public String[] getStringArray() {
+        String[] res = new String[3];
+        res[0] = Fname; res[1] = minit+""; res[2] = Lname;
+        return res;
+    }
 }
