@@ -1,4 +1,5 @@
 import java.sql.*;
+import java.util.Vector;
 
 public class SQLConnector {
     PreparedStatement stm;
@@ -10,20 +11,27 @@ public class SQLConnector {
                 "jdbc:mysql://localhost:3306/" + dbname + "?serversTimeZone=UTC",
                 acc, pw
         );
-
     }
 
     public void setStatement(String st) throws SQLException {
         this.stm = this.conn.prepareStatement(st);
-        stm.clearParameters();
     }
 
     // if stm(PreparedStatement) has "?", this may be used helpfully
     public void setStrings(String[] args) throws SQLException {
-        for (int i = 1, z = args.length; i <= z; i++) {
-            stm.setString(i, args[i]);
+        stm.clearParameters();
+        for (int i = 0, z = args.length; i < z; i++) {
+            stm.setString(i+1, args[i]);
         }
-        stm.executeUpdate();
+        //stm.executeUpdate();
+    }
+
+    public void setStrings(Vector<String> args) throws SQLException {
+        stm.clearParameters();
+        for (int i = 0, z = args.size(); i < z; i++) {
+            stm.setString(i+1, args.get(i));
+        }
+        //stm.executeUpdate();
     }
 
     public ResultSet getResultSet() throws SQLException {
@@ -40,13 +48,5 @@ public class SQLConnector {
         stm.executeUpdate();
     }
 
-    public void update(String s) throws SQLException {
-        // don't call this method if the statement is "SELECT"
-        if (s.toString().charAt(0) == 'S') {
-            throw new SQLException("Can't call execute() for SELECT statement");
-        }
-
-        stm.executeUpdate(s);
-    }
 
 }
