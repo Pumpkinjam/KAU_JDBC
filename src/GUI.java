@@ -20,25 +20,20 @@ class GUI extends JFrame implements ActionListener {
 
     JPanel fieldFilterPanel;
     private JCheckBox[] cbList;
-    /*
-    private JCheckBox cb_name = new JCheckBox("Name", true);
-    private JCheckBox cb_ssn = new JCheckBox("Ssn", true);
-    private JCheckBox cb_bdate = new JCheckBox("Bdate", true);
-    private JCheckBox cb_address = new JCheckBox("Address", true);
-    private JCheckBox cb_sex = new JCheckBox("Sex", true);
-    private JCheckBox cb_salary = new JCheckBox("Salary", true);
-    private JCheckBox cb_supervisor = new JCheckBox("Supervisor", true);
-    private JCheckBox cb_department = new JCheckBox("Department", true);
-    */
     private JButton btn_search = new JButton("검색");
 
-    JPanel underPanel = new JPanel();
+    JPanel underPanel;
 
     String[] fields;
     JPanel resultPanel;
     DefaultTableModel model;
     JTable resultTable;
     JScrollPane sPane;
+
+    JPanel editButtonPanel;
+    JPanel insertPanel, updatePanel, deletePanel;
+    JTextField[] insertForm, updateForm;
+    JButton insertConfirmButton, updateConfirmButton, deleteConfirmButton;
 
     boolean resetNeeded = false;
 
@@ -48,19 +43,22 @@ class GUI extends JFrame implements ActionListener {
 
         /* db Connecting
          */
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            this.db = new SQLConnector("company", "root", "root");
-            System.out.println("Database Connection Succeed.");
+        try { Class.forName("com.mysql.cj.jdbc.Driver"); }
+        catch (ClassNotFoundException cne) {
+            System.err.println("Driver load failure.");
+            cne.printStackTrace();
+            //System.exit(0); TODO: uncomment this line.
         }
+
+        // input password from user, and then try to connect.
+        try { this.db = new SQLConnector("company", "root", JOptionPane.showInputDialog("Input password")); }
         catch (SQLException sqle) {
             System.err.println("SQL Connection failure.");
             sqle.printStackTrace();
+            //System.exit(0); TODO: uncomment this line too.
         }
-        catch(ClassNotFoundException cne) {
-            System.err.println("Driver load failure.");
-            cne.printStackTrace();
-        }
+
+        System.out.println("Database Connection Succeed.");
 
         motherPanel.setLayout(new BoxLayout(motherPanel, BoxLayout.Y_AXIS));
         /* Panel for Filters Initializing
@@ -106,8 +104,46 @@ class GUI extends JFrame implements ActionListener {
         resultPanel = new JPanel();
         resultPanel.setSize(1100, 550);
         */
+        resultPanel = new JPanel();
+        resultPanel.setLayout(new BoxLayout(resultPanel, BoxLayout.Y_AXIS));
+        resultPanel.setPreferredSize(new Dimension(1000, 200));
+
+        editButtonPanel = new JPanel();
+        editButtonPanel.setLayout(new BoxLayout(editButtonPanel, BoxLayout.X_AXIS));
+        insertPanel = new JPanel();
+        updatePanel = new JPanel();
+        deletePanel = new JPanel();
+        editButtonPanel.add(insertPanel);
+        editButtonPanel.add(updatePanel);
+        editButtonPanel.add(deletePanel);
+
+        insertForm = new JTextField[fields.length];
+        for (int i = 0, z = fields.length; i < z; i++) {
+            insertForm[i] = new HintTextField(fields[i]);
+            insertPanel.add(insertForm[i]);
+        }
+        insertConfirmButton = new JButton("Insert");
+        insertConfirmButton.addActionListener(this);
+        insertPanel.add(insertConfirmButton);
+
+        updateForm = new JTextField[2];
+        updateForm[0] = new HintTextField("Field name to be updated");
+        updateForm[1] = new HintTextField("Update to...");
+        updatePanel.add(updateForm[0]);
+        updatePanel.add(updateForm[1]);
+        updateConfirmButton = new JButton("Update");
+        updateConfirmButton.addActionListener(this);
+        updatePanel.add(updateConfirmButton);
+
+        deleteConfirmButton = new JButton("Delete");
+        deleteConfirmButton.addActionListener(this);
+        deletePanel.add(deleteConfirmButton);
+
         underPanel = new JPanel();
         underPanel.setLayout(new BorderLayout());
+
+        underPanel.add(resultPanel);
+        underPanel.add("South", editButtonPanel);
 
         /* General Initializing
          */
@@ -249,15 +285,40 @@ class GUI extends JFrame implements ActionListener {
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        if (resetNeeded) {
-            this.remove(resultPanel);
-            revalidate();
-        }
 
         Object trg = e.getSource();
 
         if (trg == btn_search) searchServiceRoutine();
-        else if (trg == btn_search) ;
+        else if (trg == insertConfirmButton) {
+            boolean isFirst = true;
+            String st = "INSERT INTO EMPLOYEE VALUES (";
+            for (JTextField tf : insertForm) {
+                String s = tf.getText();
+
+                if (isFirst) isFirst = false;
+                else st += ", ";
+
+                st += (s == null) ? "NULL" : s;
+            }
+            st += ");";
+
+            try {
+                db.setStatement(st);
+                db.update();
+            }
+            catch (SQLException sqle) {
+                System.out.println("Error occured during inserting tuple.");
+                sqle.printStackTrace();
+            }
+
+            alert("Insert Succeed.");
+        }
+        else if (trg == updateConfirmButton) {
+
+        }
+        else if (trg == deleteConfirmButton) {
+
+        }
         else {
             // TODO: make buttons, and then add actions here
             System.out.println("That button does not have actions yet.");
@@ -267,4 +328,51 @@ class GUI extends JFrame implements ActionListener {
 
 
     }
+
+    public static void alert(String msg) {
+        System.out.println(msg);
+        JOptionPane.showMessageDialog(null, msg);
+    }
+}
+
+/* get helped from...
+ * https://hwangcoding.tistory.com/15
+ */
+class HintTextField extends JTextField {
+    String hint;
+    int contentLen;
+
+    HintTextField(String hint) {
+        this.hint = hint;
+        // HintTextField displays hint if (contentLen == 0)
+        this.contentLen = 0;
+
+        setText(hint);
+        setForeground(Color.GRAY);
+
+        this.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusGained(FocusEvent e) {
+                if (contentLen == 0) {
+                    setText("");
+                    setForeground(Color.BLACK);
+                }
+            }
+
+            @Override
+            public void focusLost(FocusEvent e) {
+                contentLen = getText().length();
+
+                if (contentLen == 0) {
+                    setText(hint);
+                    setForeground(Color.GRAY);
+                }
+                else {
+                    setText(getText());
+                    setForeground(Color.BLACK);
+                }
+            }
+        });
+    }
+
 }
