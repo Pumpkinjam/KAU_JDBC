@@ -1,3 +1,4 @@
+import java.io.PrintStream;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -47,7 +48,7 @@ class GUI extends JFrame implements ActionListener {
          */
         try { Class.forName("com.mysql.cj.jdbc.Driver"); }
         catch (ClassNotFoundException cne) {
-            System.err.println("Driver load failure.");
+            alert("Driver load failure.", System.err);
             cne.printStackTrace();
             System.exit(-1);
         }
@@ -55,7 +56,7 @@ class GUI extends JFrame implements ActionListener {
         // input password from user, and then try to connect.
         try { this.db = new SQLConnector("company", "root", JOptionPane.showInputDialog("Input password")); }
         catch (SQLException sqle) {
-            System.err.println("SQL Connection failure.");
+            alert("SQL Connection failure.", System.err);
             sqle.printStackTrace();
             System.exit(-1);
         }
@@ -169,6 +170,7 @@ class GUI extends JFrame implements ActionListener {
 
     // not checking the category/condition, just execute query {st}, and then update the table
     private void refreshTable() {
+
         String st = lastSearchStatement;
         Vector<String> fieldVector = lastSearchField;
 
@@ -304,7 +306,7 @@ class GUI extends JFrame implements ActionListener {
         // 범위를 설정했으면서 검색 조건을 설정하지 않았다면?
         // 범위를 설정하지 않은 경우로 검색
         if (!selectedCategory.equals("전체") && selectedCondition.equals("")) {
-            System.out.println("조건을 입력하지 않아 전체를 검색합니다.");
+            alert("조건을 입력하지 않아 전체를 검색합니다.");
             selectedCategory = "전체";
         }
 
@@ -364,7 +366,7 @@ class GUI extends JFrame implements ActionListener {
         for (HintTextField tf : insertForm) {
             String s = tf.contentLen == 0 ? "null" : tf.getText();
 
-            if (tf.getHint().equals("Dno")) {
+            if (tf.getHint().equals("Dname")) {
                 try {
                     // null processing for dname
                     if (s.equals("null")) {
@@ -575,13 +577,18 @@ class GUI extends JFrame implements ActionListener {
         else if (trg == deleteConfirmButton) deleteServiceRoutine();
         else {
             // TODO: make buttons, and then add actions here
-            System.out.println("That button does not have actions yet.");
+            alert("That button does not have actions yet.");
         }
 
     }
 
     public static void alert(String msg) {
         System.out.println(msg);
+        JOptionPane.showMessageDialog(null, msg);
+    }
+
+    public static void alert(String msg, PrintStream ps) {
+        ps.println(msg);
         JOptionPane.showMessageDialog(null, msg);
     }
 

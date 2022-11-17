@@ -2,7 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="fb210fae-7c6b-44dc-9f31-d34d33275236" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/out/production/KAU_JDBC/DateTime.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/KAU_JDBC/DateTime.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/out/production/KAU_JDBC/FullName.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/KAU_JDBC/FullName.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/out/production/KAU_JDBC/GUI.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/KAU_JDBC/GUI.class" afterDir="false" />
