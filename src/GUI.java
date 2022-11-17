@@ -1,5 +1,3 @@
-import com.mysql.cj.jdbc.admin.MiniAdmin;
-
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -27,6 +25,7 @@ class GUI extends JFrame implements ActionListener {
 
     private static final String[] fields =  {"Fname", "Minit", "Lname", "Ssn", "Bdate", "Address", "Sex", "Salary", "Super_ssn", "Dno"};
     private static final String[] displayedFields = {"Name", "Ssn", "Bdate", "Address", "Sex", "Salary", "Supervisor", "Department"};
+    private static final String[] dependentFields = {/*"Essn", */"Dependent_name", "Sex", "Bdate", "Relationship"};
     JPanel resultPanel;
     DefaultTableModel model, hiddenModel = null;
     JTable resultTable;
@@ -35,13 +34,13 @@ class GUI extends JFrame implements ActionListener {
     JPanel editButtonPanel;
     JPanel insertPanel, updatePanel, deletePanel;
     HintTextField[] insertForm, updateForm;
+    JCheckBox updateDepBatch;
     JButton insertConfirmButton, updateConfirmButton, deleteConfirmButton;
 
     Vector<String> lastSearchField;
     String lastSearchStatement;
-    String lastSelect, lastFrom, lastWhere;
+    String lastSelect, lastFrom, lastWhere; // variables for "SELECT ~", "FROM ~", "WHERE ~" of lastSearchStatement
 
-    // Construct with field names (in Checkboxes)
     GUI() {
 
         /* db Connecting
@@ -72,7 +71,16 @@ class GUI extends JFrame implements ActionListener {
         /* ConditionFilter GUI (+ComboBox) Initializing
          */
         conditionFilterPanel = new JPanel();
-        String[] arrayOfCategories = {"전체", "부서", "성별", "연봉", "생일", "부하직원"};
+        String[] arrayOfCategories = {
+                "전체",       // Search *
+                "부서",       // Search employees whose Department is [  ]
+                "성별",       // Search employees whose Sex is [  ]
+                "연봉",       // Search employees whose Salary is over [  ]
+                "생일",       // Search employees whose Bdate is in [  ]st month.
+                "부하직원",    // Search employees whose Super_ssn is [  ]
+                              //           means, whose Supervisor is a person with given ssn
+                "가족",       // Search [  ]'s family members
+        };
         category = new JComboBox(arrayOfCategories);
         condition_input = new JTextField(15);
 
@@ -98,6 +106,9 @@ class GUI extends JFrame implements ActionListener {
 
         filterPanel.add(fieldFilterPanel);
 
+        /* resultTable's Panel Initializing
+         * Table is set for the first time in searchServiceRoutine
+         */
         resultPanel = new JPanel();
         resultPanel.setLayout(new BoxLayout(resultPanel, BoxLayout.Y_AXIS));
         resultPanel.setPreferredSize(new Dimension(1000, 200));
@@ -113,14 +124,17 @@ class GUI extends JFrame implements ActionListener {
 
         insertForm = new HintTextField[fields.length];
         for (int i = 0, z = fields.length; i < z; i++) {
-            insertForm[i] = new HintTextField(fields[i]);
+            insertForm[i] = new HintTextField( i == z-1 ? "Dname" : fields[i]); // last textField's hint should be Dname, not Dno
             insertForm[i].setPreferredSize(new Dimension(60, 20));
             insertPanel.add(insertForm[i]);
         }
+
         insertConfirmButton = new JButton("Insert");
         insertConfirmButton.addActionListener(this);
         insertPanel.add(insertConfirmButton);
 
+        updateDepBatch = new JCheckBox("부서 일괄");
+        updatePanel.add(updateDepBatch);
         updateForm = new HintTextField[2];
         updateForm[0] = new HintTextField("Field name");
         updateForm[1] = new HintTextField("Change to...");
@@ -158,36 +172,64 @@ class GUI extends JFrame implements ActionListener {
         String st = lastSearchStatement;
         Vector<String> fieldVector = lastSearchField;
 
-        // hidden model exists for getting ssn anytime.
-        hiddenModel = new DefaultTableModel(fieldVector, 0);
-        try {
-            db.setStatement("SELECT a.Ssn FROM EMPLOYEE a LEFT OUTER JOIN EMPLOYEE b ON a.Super_ssn=b.Ssn, DEPARTMENT WHERE " + lastWhere);
-            ResultSet r = db.getResultSet();
+        boolean isDep = lastFrom.contains("DEPENDENT");
 
-            while (r.next()) {
-                Vector<String> tuple = new Vector<>();
-                tuple.add(r.getString("Ssn"));
-                hiddenModel.addRow(tuple);
+        // hidden model exists for getting ssn anytime.
+        // not be set when lastSearchStatement has DEPENDENT
+        if (!isDep) {
+            hiddenModel = new DefaultTableModel(fieldVector, 0);
+            try {
+                db.setStatement("SELECT a.Ssn FROM EMPLOYEE a LEFT OUTER JOIN EMPLOYEE b ON a.Super_ssn=b.Ssn, DEPARTMENT WHERE " + lastWhere);
+                ResultSet r = db.getResultSet();
+
+                while (r.next()) {
+                    Vector<String> tuple = new Vector<>();
+                    tuple.add(r.getString("Ssn"));
+                    hiddenModel.addRow(tuple);
+                }
+            } catch (SQLException sqle) {
+                alert("Error occured during setting hidden model.");
+                sqle.printStackTrace();
+                return;
             }
-        } catch (SQLException sqle) {
-            alert("Error occured during setting hidden model.");
-            sqle.printStackTrace();
-            return;
         }
 
         // now, let the result table be shown
-        model = new DefaultTableModel(fieldVector, 0);
+
+        // if dependent table, frame should be fixed
+        if (isDep) {
+            Vector<String> fv = new Vector<>();
+            for (String i : dependentFields) {
+                fv.add(i);
+            }
+            model = new DefaultTableModel(fv, 0);
+        }
+        else {
+            model = new DefaultTableModel(fieldVector, 0);
+        }
+
 
         try {
             db.setStatement(st);
             ResultSet r = db.getResultSet();
 
-            while (r.next()) {
-                Vector<String> tuple = new Vector<>();
-                for (String i : fieldVector) {
-                    tuple.add(r.getString(i));
+            if (isDep) {
+                while (r.next()) {
+                    Vector<String> tuple = new Vector<>();
+                    for (String i : dependentFields) {
+                        tuple.add(r.getString(i));
+                    }
+                    model.addRow(tuple);
                 }
-                model.addRow(tuple);
+            }
+            else {
+                while (r.next()) {
+                    Vector<String> tuple = new Vector<>();
+                    for (String i : fieldVector) {
+                        tuple.add(r.getString(i));
+                    }
+                    model.addRow(tuple);
+                }
             }
 
         }
@@ -243,15 +285,19 @@ class GUI extends JFrame implements ActionListener {
         }
 
         if (!firstFieldExists) {
-            System.out.println("체크박스를 하나 이상 선택하십시오.");
+            alert("체크박스를 하나 이상 선택하십시오.");
             return;
         }
+
+        // natural join으로는 super_ssn이 null인 경우를 가져올 수 없음
+        /* lastFrom += "EMPLOYEE a, EMPLOYEE b, DEPARTMENT";
+         * lastWhere += "a.super_ssn=b.ssn AND a.dno=dnumber";
+         */
         lastFrom += "EMPLOYEE a LEFT OUTER JOIN EMPLOYEE b ON a.Super_ssn=b.Ssn, DEPARTMENT";
-        //st += " WHERE a.super_ssn=b.ssn AND a.dno=dnumber";
-        lastWhere += "a.dno=dnumber";   // natural join으로는 super_ssn이 null인 경우를 가져올 수 없음
+        lastWhere += "a.dno=dnumber";
 
         // ..and additional condition statements
-        // "전체", "부서", "성별", "연봉", "생일", "부하직원"
+        // "전체", "부서", "성별", "연봉", "생일", "부하직원", "가족"
         String selectedCategory = category.getSelectedItem().toString();
         String selectedCondition = condition_input.getText();
 
@@ -264,10 +310,10 @@ class GUI extends JFrame implements ActionListener {
 
         // 부서명으로 검색
         switch (selectedCategory) {
-            case "부서" -> lastWhere += " AND Dname='" + selectedCondition + "'";
+            case "부서" -> lastWhere += " AND Dname=" + quote(selectedCondition);
 
             // 성별으로 검색 (M or F)
-            case "성별" -> lastWhere += " AND a.Sex='" + selectedCondition + "'";
+            case "성별" -> lastWhere += " AND a.Sex=" + quote(selectedCondition);
 
             // 입력한 값보다 높은 연봉을 받는 직원 검색
             case "연봉" -> lastWhere += " AND a.Salary>" + selectedCondition;
@@ -283,13 +329,21 @@ class GUI extends JFrame implements ActionListener {
                 }
                 lastWhere += " AND MONTH(a.Bdate)=" + selectedCondition;
             }
+
             // Ssn(에 해당하는 직원)을 상사로 갖는 직원 검색
             case "부하직원" -> lastWhere += " AND b.ssn=" + quote(selectedCondition);
+
+            case "가족" -> {
+                // must have a different format.
+                lastSelect = "*"; lastFrom = "DEPENDENT, EMPLOYEE";
+                lastWhere = "Essn=Ssn AND Ssn=" + quote(selectedCondition);
+            }
+            // default -> alert("Unknown Searching Category");
         }
 
         String st = "SELECT " + lastSelect +
                 " FROM " + lastFrom +
-                " WHERE " + lastWhere;
+                " WHERE " + lastWhere + ";";
 
         System.out.println("Query Statement : " + st);
         lastSearchStatement = st;
@@ -302,6 +356,7 @@ class GUI extends JFrame implements ActionListener {
     // {Fname, Minit, Lname}, Ssn, Bdate, Address, Sex, Salary, Super_ssn, "Dname!!", created, modified
     private void insertServiceRoutine() {
         // boolean isFirst = true;
+
 
         String st = "INSERT INTO EMPLOYEE VALUES (?,?,?,?,?,?,?,?,?,?,?,?);";
         Vector<String> arguments = new Vector<>();
@@ -369,6 +424,13 @@ class GUI extends JFrame implements ActionListener {
     }
 
     private void updateServiceRoutine() {
+
+        // Cannot Update a tuple in the DEPENDENT table
+        if (lastFrom.contains("DEPENDENT")) {
+            alert("Cannot Update a tuple in the DEPENDENT table");
+            return;
+        }
+
         int rowIdx;
 
         try {
@@ -387,6 +449,14 @@ class GUI extends JFrame implements ActionListener {
         Vector<String> args = new Vector<>();
         String st;
 
+        boolean depBatch = updateDepBatch.isSelected();
+        if (depBatch && selected.equalsIgnoreCase("name") || selected.equalsIgnoreCase("ssn")) {
+            alert("부서 일괄 수정이 불가능한 필드입니다.");
+            alert("수정이 취소되었습니다.");
+            updateDepBatch.setSelected(false);
+            depBatch = false;
+        }
+
         if (selected.equalsIgnoreCase("name")) {
             FullName name = new FullName(updateForm[1].getText());
             st = "UPDATE EMPLOYEE SET Fname=?, Minit=?, Lname=?, modified=? WHERE Ssn=" +
@@ -396,14 +466,28 @@ class GUI extends JFrame implements ActionListener {
             args.add(name.Lname);
         }
         else {
-            st = "UPDATE EMPLOYEE SET " + selected + "=?, modified=? WHERE Ssn=" +
-                    quote((String) hiddenModel.getValueAt(rowIdx, 0)) + ";";
+            if (depBatch) {
+                // MySQL can't execute this query
+                /*
+                st = "UPDATE EMPLOYEE SET " + selected + "=?, modified=? " +
+                        "WHERE Dno=(" +
+                        "SELECT Dno FROM EMPLOYEE WHERE Ssn=" + quote((String) hiddenModel.getValueAt(rowIdx, 0)) + ");";
+                 */
+                st = "UPDATE EMPLOYEE SET " + selected + "=?, modified=? " +
+                        "WHERE Dno=(SELECT Dno FROM (" +
+                        "SELECT Dno FROM EMPLOYEE WHERE Ssn=" + quote((String) hiddenModel.getValueAt(rowIdx, 0)) + ") AS E);";
+            }
+            else {
+                st = "UPDATE EMPLOYEE SET " + selected + "=?, modified=? " +
+                        "WHERE Ssn=" + quote((String) hiddenModel.getValueAt(rowIdx, 0)) + ";";
+            }
             args.add(updateForm[1].getText());
         }
 
         args.add(DateTime.now().toString());
         System.out.println("Query Statement : " + st);
-
+        // always reset the checked state
+        updateDepBatch.setSelected(false);
         try {
             db.setStatement(st);
             db.setStrings(args);
@@ -427,6 +511,13 @@ class GUI extends JFrame implements ActionListener {
     }
 
     private void deleteServiceRoutine() {
+
+        // Cannot Delete a tuple in the DEPENDENT table
+        if (lastFrom.contains("DEPENDENT")) {
+            alert("Cannot Delete a tuple in the DEPENDENT table");
+            return;
+        }
+
         int rowIdx;
 
         try {

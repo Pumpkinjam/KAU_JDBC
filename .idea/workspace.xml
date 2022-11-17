@@ -3,13 +3,12 @@
   <component name="ChangeListManager">
     <list default="true" id="fb210fae-7c6b-44dc-9f31-d34d33275236" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/production/KAU_JDBC/DateTime.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/KAU_JDBC/DateTime.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/out/production/KAU_JDBC/FullName.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/KAU_JDBC/FullName.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/out/production/KAU_JDBC/GUI.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/KAU_JDBC/GUI.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/out/production/KAU_JDBC/HintTextField$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/KAU_JDBC/HintTextField$1.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/out/production/KAU_JDBC/HintTextField.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/KAU_JDBC/HintTextField.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/out/production/KAU_JDBC/SQLConnector.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/KAU_JDBC/SQLConnector.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/GUI.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/GUI.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/Main.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/Main.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/SQLConnector.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/SQLConnector.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -40,9 +39,9 @@
     &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;last_opened_file_path&quot;: &quot;C:/Program Files (x86)/MySQL/Connector J 8.0/mysql-connector-j-8.0.31.jar&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;Modules&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Libraries&quot;,
     &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
-    &quot;project.structure.side.proportion&quot;: &quot;0.0&quot;
+    &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;
   }
 }</component>
   <component name="RunManager">
