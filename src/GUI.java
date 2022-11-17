@@ -33,13 +33,13 @@ class GUI extends JFrame implements ActionListener {
     JPanel editButtonPanel;
     JPanel insertPanel, updatePanel, deletePanel;
     HintTextField[] insertForm, updateForm;
+    JCheckBox updateDepBatch;
     JButton insertConfirmButton, updateConfirmButton, deleteConfirmButton;
 
     Vector<String> lastSearchField;
     String lastSearchStatement;
-    String lastSelect, lastFrom, lastWhere;
+    String lastSelect, lastFrom, lastWhere; // variables for "SELECT ~", "FROM ~", "WHERE ~" of lastSearchStatement
 
-    // Construct with field names (in Checkboxes)
     GUI() {
 
         /* db Connecting
@@ -70,7 +70,16 @@ class GUI extends JFrame implements ActionListener {
         /* ConditionFilter GUI (+ComboBox) Initializing
          */
         conditionFilterPanel = new JPanel();
-        String[] arrayOfCategories = {"전체", "부서", "성별", "연봉", "생일", "부하직원"};
+        String[] arrayOfCategories = {
+                "전체",       // Search *
+                "부서",       // Search employees whose Department is [  ]
+                "성별",       // Search employees whose Sex is [  ]
+                "연봉",       // Search employees whose Salary is over [  ]
+                "생일",       // Search employees whose Bdate is in [  ]st month.
+                "부하직원",    // Search employees whose Super_ssn is [  ]
+                              //           means, whose Supervisor is a person with given ssn
+                "가족",       // Search [  ]'s family members
+        };
         category = new JComboBox(arrayOfCategories);
         condition_input = new JTextField(15);
 
@@ -96,6 +105,9 @@ class GUI extends JFrame implements ActionListener {
 
         filterPanel.add(fieldFilterPanel);
 
+        /* resultTable's Panel Initializing
+         * Table is set for the first time in searchServiceRoutine
+         */
         resultPanel = new JPanel();
         resultPanel.setLayout(new BoxLayout(resultPanel, BoxLayout.Y_AXIS));
         resultPanel.setPreferredSize(new Dimension(1000, 200));
@@ -119,6 +131,8 @@ class GUI extends JFrame implements ActionListener {
         insertConfirmButton.addActionListener(this);
         insertPanel.add(insertConfirmButton);
 
+        updateDepBatch = new JCheckBox("부서 일괄");
+        updatePanel.add(updateDepBatch);
         updateForm = new HintTextField[2];
         updateForm[0] = new HintTextField("Field name");
         updateForm[1] = new HintTextField("Change to...");
@@ -241,15 +255,19 @@ class GUI extends JFrame implements ActionListener {
         }
 
         if (!firstFieldExists) {
-            System.out.println("체크박스를 하나 이상 선택하십시오.");
+            alert("체크박스를 하나 이상 선택하십시오.");
             return;
         }
+
+        // natural join으로는 super_ssn이 null인 경우를 가져올 수 없음
+        /* lastFrom += "EMPLOYEE a, EMPLOYEE b, DEPARTMENT";
+         * lastWhere += "a.super_ssn=b.ssn AND a.dno=dnumber";
+         */
         lastFrom += "EMPLOYEE a LEFT OUTER JOIN EMPLOYEE b ON a.Super_ssn=b.Ssn, DEPARTMENT";
-        //st += " WHERE a.super_ssn=b.ssn AND a.dno=dnumber";
-        lastWhere += "a.dno=dnumber";   // natural join으로는 super_ssn이 null인 경우를 가져올 수 없음
+        lastWhere += "a.dno=dnumber";
 
         // ..and additional condition statements
-        // "전체", "부서", "성별", "연봉", "생일", "부하직원"
+        // "전체", "부서", "성별", "연봉", "생일", "부하직원", "가족"
         String selectedCategory = category.getSelectedItem().toString();
         String selectedCondition = condition_input.getText();
 
@@ -281,8 +299,16 @@ class GUI extends JFrame implements ActionListener {
                 }
                 lastWhere += " AND MONTH(a.Bdate)=" + selectedCondition;
             }
+
             // Ssn(에 해당하는 직원)을 상사로 갖는 직원 검색
             case "부하직원" -> lastWhere += " AND b.ssn=" + quote(selectedCondition);
+
+            case "가족" -> {
+                // must have a different format.
+                lastSelect = "*"; lastFrom = "DEPENDENT, EMPLOYEE";
+                lastWhere = "Essn=Ssn AND Ssn=" + quote(selectedCondition);
+            }
+            default -> alert("Unknown Searching Category");
         }
 
         String st = "SELECT " + lastSelect +
@@ -300,6 +326,7 @@ class GUI extends JFrame implements ActionListener {
     // {Fname, Minit, Lname}, Ssn, Bdate, Address, Sex, Salary, Super_ssn, "Dname!!", created, modified
     private void insertServiceRoutine() {
         // boolean isFirst = true;
+
 
         String st = "INSERT INTO EMPLOYEE VALUES (?,?,?,?,?,?,?,?,?,?,?,?);";
         Vector<String> arguments = new Vector<>();
@@ -367,6 +394,13 @@ class GUI extends JFrame implements ActionListener {
     }
 
     private void updateServiceRoutine() {
+
+        // Cannot Update a tuple in the DEPENDENT table
+        if (lastFrom.contains("DEPENDENT")) {
+            alert("Cannot Update a tuple in the DEPENDENT table");
+            return;
+        }
+
         int rowIdx;
 
         try {
@@ -385,6 +419,13 @@ class GUI extends JFrame implements ActionListener {
         Vector<String> args = new Vector<>();
         String st;
 
+        boolean depBatch = updateDepBatch.isSelected();
+        if (depBatch && selected.equalsIgnoreCase("name") || selected.equalsIgnoreCase("ssn")) {
+            alert("부서 일괄 수정이 불가능한 필드입니다.");
+            updateDepBatch.setSelected(false);
+            depBatch = false;
+        }
+
         if (selected.equalsIgnoreCase("name")) {
             FullName name = new FullName(updateForm[1].getText());
             st = "UPDATE EMPLOYEE SET Fname=?, Minit=?, Lname=?, modified=? WHERE Ssn=" +
@@ -394,8 +435,15 @@ class GUI extends JFrame implements ActionListener {
             args.add(name.Lname);
         }
         else {
-            st = "UPDATE EMPLOYEE SET " + selected + "=?, modified=? WHERE Ssn=" +
-                    quote((String) hiddenModel.getValueAt(rowIdx, 0)) + ";";
+            if (depBatch) {
+                st = "UPDATE EMPLOYEE SET " + selected + "=?, modified=? " +
+                        "WHERE Dno=(" +
+                        "SELECT Dno FROM EMPLOYEE WHERE Ssn=" + quote((String) hiddenModel.getValueAt(rowIdx, 0)) + ");";
+            }
+            else {
+                st = "UPDATE EMPLOYEE SET " + selected + "=?, modified=? " +
+                        "WHERE Ssn=" + quote((String) hiddenModel.getValueAt(rowIdx, 0)) + ";";
+            }
             args.add(updateForm[1].getText());
         }
 
@@ -425,6 +473,13 @@ class GUI extends JFrame implements ActionListener {
     }
 
     private void deleteServiceRoutine() {
+
+        // Cannot Delete a tuple in the DEPENDENT table
+        if (lastFrom.contains("DEPENDENT")) {
+            alert("Cannot Delete a tuple in the DEPENDENT table");
+            return;
+        }
+
         int rowIdx;
 
         try {
