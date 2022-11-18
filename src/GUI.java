@@ -170,6 +170,10 @@ class GUI extends JFrame implements ActionListener {
 
     // not checking the category/condition, just execute query {st}, and then update the table
     private void refreshTable() {
+        if (lastSearchStatement == null) {
+            System.err.println("테이블을 생성하지 않는 상태이므로 새로고침을 수행하지 않습니다.");
+            return;
+        }
 
         String st = lastSearchStatement;
         Vector<String> fieldVector = lastSearchField;
@@ -215,6 +219,7 @@ class GUI extends JFrame implements ActionListener {
             db.setStatement(st);
             ResultSet r = db.getResultSet();
 
+            // 가족 검색일 경우, 컬럼을 그에 맞게 설정
             if (isDep) {
                 while (r.next()) {
                     Vector<String> tuple = new Vector<>();
@@ -224,6 +229,7 @@ class GUI extends JFrame implements ActionListener {
                     model.addRow(tuple);
                 }
             }
+            // 그렇지 않은 경우, 체크박스의 정보가 담긴 fieldVector로 컬럼을 설정
             else {
                 while (r.next()) {
                     Vector<String> tuple = new Vector<>();
@@ -277,7 +283,8 @@ class GUI extends JFrame implements ActionListener {
                 String selectedString = displayedFields[i];
 
                 switch (selectedString) {
-                    case "Name" -> lastSelect += "concat(a.fname, ' ', a.minit, ' ', a.lname) as Name";
+                    case "Name" -> lastSelect += "concat(a.fname, ' ', ifnull(concat(' ', a.minit), ''), ' ', a.lname) as Name";
+                    // case "Name" -> lastSelect += "concat(a.fname, ' ', a.minit, ' ', a.lname) as Name";   <- cannot process if minit==null
                     case "Supervisor" -> lastSelect += "concat(b.fname, ' ', b.minit, ' ', b.lname) as Supervisor";
                     case "Department" -> lastSelect += "dname as Department";
                     default -> lastSelect += "a." + selectedString;
@@ -364,13 +371,14 @@ class GUI extends JFrame implements ActionListener {
         Vector<String> arguments = new Vector<>();
 
         for (HintTextField tf : insertForm) {
-            String s = tf.contentLen == 0 ? "null" : tf.getText();
+            String s = tf.contentLen == 0 ? null : tf.getText();
+            String ph /*placeholder*/ = tf.getHint();
 
-            if (tf.getHint().equals("Dname")) {
+            if (ph.equals("Dname")) {
                 try {
                     // null processing for dname
-                    if (s.equals("null")) {
-                        arguments.add("5"); continue;
+                    if (s == null) {
+                        arguments.add("1"); continue;
                     }
 
                     db.setStatement("SELECT Dnumber FROM DEPARTMENT WHERE Dname=" + quote(s) + ";");
@@ -427,23 +435,29 @@ class GUI extends JFrame implements ActionListener {
 
     private void updateServiceRoutine() {
 
+        if (lastSearchStatement == null) {
+            alert("테이블이 생성되지 않았습니다");
+            return;
+        }
+
         // Cannot Update a tuple in the DEPENDENT table
         if (lastFrom.contains("DEPENDENT")) {
             alert("Cannot Update a tuple in the DEPENDENT table");
             return;
         }
 
+        // if field is not filled
+        if (updateForm[0].contentLen == 0) {
+            alert("수정할 필드를 선택해주세요.");
+            return;
+        }
+
         int rowIdx;
 
-        try {
-            rowIdx = resultTable.getSelectedRow();
-            if (rowIdx == -1) {
-                alert("행을 선택해주세요.");
-                return;
-            }
-        } catch (NullPointerException npe) {
-            alert("테이블이 생성되지 않았습니다.");
-            npe.printStackTrace();
+
+        rowIdx = resultTable.getSelectedRow();
+        if (rowIdx == -1) {
+            alert("행을 선택해주세요.");
             return;
         }
 
